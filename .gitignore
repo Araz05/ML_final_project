@@ -1,0 +1,4 @@
+
+# raw data: too big for GitHub, downloaded from Kaggle instead
+data/*.csv
+*.zip

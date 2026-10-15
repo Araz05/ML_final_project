@@ -138,10 +138,8 @@ def _detect_currency(text) -> str:
  
  
 def normalize_currency(df, price_col: str = "price"):
-    """
-    Convert prices to AZN. Run it BEFORE coerce_numeric (that function would
-    strip the currency text). The currency is read from the first column in
-    CURRENCY_COL_CANDIDATES that exists, otherwise from the price string"""
+    """Convert prices to AZN. Run it BEFORE coerce_numeric (that function would
+    strip the currency text)"""
     df = df.copy()
     if price_col not in df.columns:
         return df

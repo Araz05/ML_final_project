@@ -9,6 +9,15 @@ from __future__ import annotations
 
 import numpy as np
 
+def _check_pair(y_true, y_pred):
+    """Flatten both arrays to 1D float and make sure the shapes match."""
+    y_true = np.asarray(y_true, dtype=float).ravel()
+    y_pred = np.asarray(y_pred, dtype=float).ravel()
+    if y_true.size == 0:
+        raise ValueError("empty input")
+    if y_true.shape != y_pred.shape:
+        raise ValueError(f"shape mismatch: {y_true.shape} vs {y_pred.shape}")
+    return y_true, y_pred
 
 # --- Regression (Task A: price) --------------------------------------------
 def rmse(y_true, y_pred) -> float:

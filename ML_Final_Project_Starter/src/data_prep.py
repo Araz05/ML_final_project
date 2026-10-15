@@ -7,7 +7,10 @@ calls these functions. Fix your random seed everywhere (see SEED).
 
 from __future__ import annotations
 
+import re
+
 import numpy as np
+import pandas as pd
 
 # --- Config -----------------------------------------------------------------
 SEED = 42
@@ -20,10 +23,38 @@ LEAKAGE_COLUMNS: list[str] = [
     # "total_price",
 ]
 
+RENAME_MAP = {
+    "sahe": "area",
+    "otaq_sayi": "rooms",
+    "mertebe": "floor",
+    "torpaq_sahesi": "land_area",
+    "binanin_novu": "building_type",
+    "kateqoriya": "category",
+    "temir": "repair",
+    "ipoteka": "mortgage",
+    "cixaris": "bill_of_sale",
+}
+#Columns that must be numeric after cleaning (names AFTER renaming).
+#`floor`("7 / 9") is split into `floor` and `floor_total` by coerce_numeric.
+NUMERIC_COLS = ["price", "area", "rooms", "land_area", "lat", "lng"]
+
+
+CURRENCY_COL_CANDIDATES = ("currency_x", "currency_y", "currency", "valyuta")
+
+# Everything is converted to AZN. 1 USD = 1.70 AZN is the official fixed rate;
+FX_TO_AZN = {"AZN": 1.0, "USD": 1.70, "EUR": 1.85}
+
+SOT_TO_M2 = 100.0
+
+_AZ_FOLD = str.maketrans({
+    "ə": "e", "Ə": "e", "ı": "i", "İ": "i", "I": "i", "ş": "s", "Ş": "s",
+    "ç": "c", "Ç": "c", "ğ": "g", "Ğ": "g", "ö": "o", "Ö": "o",
+    "ü": "u", "Ü": "u",
+})
 
 def load_raw(path: str = DATA_PATH):
     """Read the raw CSV into a DataFrame (keep UTF-8). Return it unmodified."""
-    raise NotImplementedError("TODO: load the raw CSV")
+    return pd.read_csv(path, encoding="utf-8", low_memory=False)
 
 
 def clean(df):

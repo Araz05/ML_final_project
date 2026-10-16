@@ -204,4 +204,60 @@ class PegasosSVM:
         hinge = np.maximum(0.0, 1.0 - y_pm1 * self.decision_function(X)).mean()
         return float(0.5 * self.lambda_ * (self.w @ self.w) + hinge)
 
+# Non-linear extension: Random Fourier Features + linear Pegasos
+# =======================================================
+class RandomFourierFeatures:
+    """phi(x) = sqrt(2/D) * cos(W x + c) with W ~ N(0, 2*gamma*I), c ~ U(0, 2pi),
+    so that phi(x) . phi(y) ~= exp(-gamma * ||x - y||^2)  (the RBF kernel)."""
 
+    def __init__(self, n_components: int = 300, gamma: float | None = None,
+                 random_state: int = 42):
+        self.n_components = n_components
+        self.gamma = gamma              # None -> 1 / n_features (X is standardised)
+        self.random_state = random_state
+        self.W = None
+        self.c = None
+        self.gamma_ = None
+
+    def fit(self, X):
+        X = np.asarray(X, dtype=float)
+        rng = np.random.default_rng(self.random_state)
+        self.gamma_ = self.gamma if self.gamma is not None else 1.0 / X.shape[1]
+        self.W = rng.normal(0.0, np.sqrt(2.0 * self.gamma_),
+                            size=(X.shape[1], self.n_components))
+        self.c = rng.uniform(0.0, 2.0 * np.pi, size=self.n_components)
+        return self
+
+    def transform(self, X):
+        if self.W is None:
+            raise RuntimeError("call fit(X) first")
+        X = np.asarray(X, dtype=float)
+        return np.sqrt(2.0 / self.n_components) * np.cos(X @ self.W + self.c)
+
+    def fit_transform(self, X):
+        return self.fit(X).transform(X)
+
+
+class RBFPegasosSVM(PegasosSVM):
+    """Approximate RBF-kernel SVM: map X with random Fourier features, then run
+    the LINEAR Pegasos above. Same API as PegasosSVM (fit/predict/...).
+    Its `w` lives in the D-dimensional feature space, so margin_width() and
+    support_ refer to that space."""
+
+    def __init__(self, lambda_: float = 1e-4, n_iters: int = 20_000,
+                 random_state: int = 42, gamma: float | None = None,
+                 n_components: int = 300, **kwargs):
+        super().__init__(lambda_=lambda_, n_iters=n_iters,
+                         random_state=random_state, **kwargs)
+        self.gamma = gamma
+        self.n_components = n_components
+        self.rff_ = None
+
+    def fit(self, X, y):
+        self.rff_ = RandomFourierFeatures(self.n_components, self.gamma,
+                                          self.random_state).fit(X)
+        return super().fit(self.rff_.transform(X), y)
+
+    def decision_function(self, X):
+        self._check_fitted()
+        return super().decision_function(self.rff_.transform(X))

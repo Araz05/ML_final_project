@@ -141,12 +141,12 @@ class PegasosSVM:
             Xb, yb = Xa[idx], y_pm1[idx]
             eta = 1.0 / (lam * t)
 
-            viol = yb * (Xb @ w) < 1.0                 # hinge-active examples
-            w *= (1.0 - eta * lam)                      # regularisation shrink
+            viol = yb * (Xb @ w) < 1.0                 
+            w *= (1.0 - eta * lam)                      
             if viol.any():
-                w += (eta / k) * (yb[viol] @ Xb[viol])  # sum_i y_i x_i / k
+                w += (eta / k) * (yb[viol] @ Xb[viol])  
 
-            norm = np.linalg.norm(w)                    # projection step
+            norm = np.linalg.norm(w)                    
             if norm > radius:
                 w *= radius / norm
 
@@ -162,7 +162,6 @@ class PegasosSVM:
         self.w = w_final[:-1].copy()
         self.b = float(w_final[-1] * self.bias_scale)
 
-        # support vectors: points on or inside the margin (y f(x) <= 1)
         margins = y_pm1 * (Xa @ w_final)
         self.support_ = np.flatnonzero(margins <= 1.0 + self.sv_tol)
         self.n_support_ = int(self.support_.size)
@@ -204,8 +203,8 @@ class PegasosSVM:
         hinge = np.maximum(0.0, 1.0 - y_pm1 * self.decision_function(X)).mean()
         return float(0.5 * self.lambda_ * (self.w @ self.w) + hinge)
 
+ 
 # Non-linear extension: Random Fourier Features + linear Pegasos
-# =======================================================
 class RandomFourierFeatures:
     """phi(x) = sqrt(2/D) * cos(W x + c) with W ~ N(0, 2*gamma*I), c ~ U(0, 2pi),
     so that phi(x) . phi(y) ~= exp(-gamma * ||x - y||^2)  (the RBF kernel)."""

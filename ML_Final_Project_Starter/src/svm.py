@@ -40,6 +40,14 @@ Design choices made in this implementation
 * Iterate averaging: the returned model is the average of the iterates from
   the second half of training (`average=True`), which removes most of the
   noise of the last SGD step.
+* Learning-rate schedule (exposed hyper-parameter `lr_schedule`):
+    "pegasos"  : eta_t = 1/(lambda*t)        (default, the Pegasos paper)
+    "inv_sqrt" : eta_t = eta0/sqrt(t)
+    "constant" : eta_t = eta0
+  eta_t is always clipped to 1/lambda so the shrink factor (1 - eta_t*lambda)
+  stays in [0, 1].
+* Training length can be given as `n_iters` (steps) OR `n_epochs` (passes over
+  the data; steps = ceil(n_epochs * n / batch_size)).
 * Non-linearity: RANDOM FOURIER FEATURES (Rahimi & Recht, 2007) +
   linear Pegasos -> `RBFPegasosSVM`. Chosen over kernelised Pegasos because
   training stays O(n_iters * batch * D) with no n x n kernel matrix, which
@@ -62,11 +70,20 @@ class PegasosSVM:
         bias_scale: float = 1.0,   # value of the constant bias feature
         track_every: int = 500,    # record the objective every k steps (0 = off)
         sv_tol: float = 1e-8,      # tolerance for the support-vector test
+        n_epochs: float | None = None,   # if set, overrides n_iters (see fit)
+        lr_schedule: str = "pegasos",    # "pegasos" | "inv_sqrt" | "constant"
+        eta0: float = 1.0,               # base step for "inv_sqrt" / "constant"
     ):
         if lambda_ <= 0:
             raise ValueError("lambda_ must be > 0")
         if n_iters < 1 or batch_size < 1:
             raise ValueError("n_iters and batch_size must be >= 1")
+        if n_epochs is not None and n_epochs <= 0:
+            raise ValueError("n_epochs must be > 0")
+        if lr_schedule not in ("pegasos", "inv_sqrt", "constant"):
+            raise ValueError("lr_schedule must be 'pegasos', 'inv_sqrt' or 'constant'")
+        if eta0 <= 0:
+            raise ValueError("eta0 must be > 0")
         self.lambda_ = lambda_
         self.n_iters = n_iters
         self.random_state = random_state
@@ -75,6 +92,11 @@ class PegasosSVM:
         self.bias_scale = bias_scale
         self.track_every = track_every
         self.sv_tol = sv_tol
+        self.n_epochs = n_epochs
+        self.lr_schedule = lr_schedule
+        self.eta0 = eta0
+        self.n_steps_ = None            # steps actually run by fit()
+        self.epochs_ = None             # passes over the data actually run
         self.w = None              # weight vector
         self.b = 0.0               # bias
 
@@ -112,6 +134,16 @@ class PegasosSVM:
         hinge = np.maximum(0.0, 1.0 - margins).mean()
         return float(0.5 * self.lambda_ * (w @ w) + hinge)
 
+    def _eta(self, t: int) -> float:
+        """Learning rate at step t (1-based) for the chosen schedule."""
+        if self.lr_schedule == "pegasos":
+            eta = 1.0 / (self.lambda_ * t)
+        elif self.lr_schedule == "inv_sqrt":
+            eta = self.eta0 / np.sqrt(t)
+        else:                                   # constant
+            eta = self.eta0
+        return min(eta, 1.0 / self.lambda_)     # keep 1 - eta*lambda in [0, 1]
+
     # -------------------------------------------------------------------- fit
     def fit(self, X, y):
         """
@@ -129,24 +161,27 @@ class PegasosSVM:
         lam = self.lambda_
         radius = 1.0 / np.sqrt(lam)
         k = min(self.batch_size, n)
+        n_steps = (self.n_iters if self.n_epochs is None
+                   else max(1, int(np.ceil(self.n_epochs * n / k))))
+        self.n_steps_, self.epochs_ = n_steps, n_steps * k / n
 
         w = np.zeros(d)
         w_sum = np.zeros(d)
         n_avg = 0
-        avg_start = self.n_iters // 2
+        avg_start = n_steps // 2
         self.objective_history_ = []
 
-        for t in range(1, self.n_iters + 1):
+        for t in range(1, n_steps + 1):
             idx = rng.integers(0, n, size=k)
             Xb, yb = Xa[idx], y_pm1[idx]
-            eta = 1.0 / (lam * t)
+            eta = self._eta(t)
 
-            viol = yb * (Xb @ w) < 1.0                 
-            w *= (1.0 - eta * lam)                      
+            viol = yb * (Xb @ w) < 1.0                 # hinge-active examples
+            w *= (1.0 - eta * lam)                      # regularisation shrink
             if viol.any():
-                w += (eta / k) * (yb[viol] @ Xb[viol])  
+                w += (eta / k) * (yb[viol] @ Xb[viol])  # sum_i y_i x_i / k
 
-            norm = np.linalg.norm(w)                    
+            norm = np.linalg.norm(w)                    # projection step
             if norm > radius:
                 w *= radius / norm
 
@@ -155,13 +190,14 @@ class PegasosSVM:
                 n_avg += 1
 
             if self.track_every and (t == 1 or t % self.track_every == 0
-                                     or t == self.n_iters):
+                                     or t == n_steps):
                 self.objective_history_.append((t, self._objective(Xa, y_pm1, w)))
 
         w_final = (w_sum / n_avg) if (self.average and n_avg > 0) else w
         self.w = w_final[:-1].copy()
         self.b = float(w_final[-1] * self.bias_scale)
 
+        # support vectors: points on or inside the margin (y f(x) <= 1)
         margins = y_pm1 * (Xa @ w_final)
         self.support_ = np.flatnonzero(margins <= 1.0 + self.sv_tol)
         self.n_support_ = int(self.support_.size)
@@ -203,8 +239,10 @@ class PegasosSVM:
         hinge = np.maximum(0.0, 1.0 - y_pm1 * self.decision_function(X)).mean()
         return float(0.5 * self.lambda_ * (self.w @ self.w) + hinge)
 
- 
+
+# =============================================================================
 # Non-linear extension: Random Fourier Features + linear Pegasos
+# =============================================================================
 class RandomFourierFeatures:
     """phi(x) = sqrt(2/D) * cos(W x + c) with W ~ N(0, 2*gamma*I), c ~ U(0, 2pi),
     so that phi(x) . phi(y) ~= exp(-gamma * ||x - y||^2)  (the RBF kernel)."""

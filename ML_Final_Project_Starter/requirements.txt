@@ -1,6 +1,6 @@
-# Pin your exact versions (run `pip freeze` once your env works).
-# These are sensible starting points — adjust as needed, then PIN them.
+# Exact versions used for every number in the report (tested on Python 3.12).
 numpy==1.26.4
 pandas==2.2.2
 matplotlib==3.8.4
-scikit-learn==1.4.2   # baselines / optional bonuses ONLY — not for your models
+scikit-learn==1.4.2   # baselines / sanity checks ONLY, never inside our own models
+pytest==9.1.1

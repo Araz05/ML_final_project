@@ -7,17 +7,21 @@ plus a short per-member paragraph.
 ## Team
 | Member (Surname, Name) | GitHub handle | Main responsibilities |
 |------------------------|---------------|-----------------------|
-| ---                    | ---           | ---                   |
-| ---                    | ---           | ---                   |
-| ---                    | ---           | ---                   |
+| Huseynali Mehdiyev                   | huseynalimehdiyev          | Pegasos SVM & RFF implementation, SVM experiments, evaluation & report                   |
+| Araz Valishov                  | Araz05          | Decision Tree implementation & tests, tree experiments, evaluation & benchmark                   |
+| Joshgun Malikov                   | malikovjoshgun           | Pegasos SVM & RFF contributions, SVM experiments, presentation                  |
+| Elsaf Baghirov                  | elsef-star           | Decision Tree contributions & tests, tree experiments                  |
 
 ## Per-member summary
-**Surname, Name —** 2–4 sentences: what you designed, implemented, wrote,
-and debugged. Reference concrete files/PRs/commits.
+**Huseynali Mehdiyev —** Pegasos SVM and RFF (src/svm.py, tests), SVM experiments. Benchmark and error analysis (src/run_all.py, src/evaluate.py(a part of it)), and report.
 
-**Surname, Name —** ...
+**Araz Valishov —** Benchmark and error analysis (src/run_all.py(a part of it), src/evaluate.py(a part of it)), Decision Tree and its tests file(src/decision_tree.py, tests), tree experiments.
 
-**Surname, Name —** ...
+**Elsaf Baghirov —** Decision tree (src/decision_tree.py(a part of it), tests), and tree experiments.
+
+**Joshgun Malikov —** Pegasos SVM and RFF (src/svm.py(a part of it), tests), SVM experiments and presentation.
+
+**All team members -** EDA(Exploratory Data Analysis) and data cleaning(src/data_prep.py)
 
 ## Rough effort split
 Give an approximate percentage per member (should sum to ~100%) and note any
@@ -25,6 +29,7 @@ imbalance and why.
 
 | Member | Approx. % |
 |--------|-----------|
-| ---    | ---       |
-| ---    | ---       |
-| ---    | ---       |
+| Huseynali Mehdiyev    | 28 %      |
+| Araz Valishov   | 26 %      |
+| Joshgun Malikov    | 24 %     |
+| Elsaf Baghirov    | 22 %     |
